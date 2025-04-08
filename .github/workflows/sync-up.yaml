@@ -1,0 +1,45 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # 每天凌晨 2:00 UTC (对应北京时间 10:00) 运行
+    - cron: '0 2 * * *'
+  
+  # 可选：允许手动触发工作流
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync with upstream
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+      
+      - name: Add upstream repository
+        run: |
+          # 替换以下 URL 为你的上游仓库地址
+          git remote add upstream https://github.com/Calcium-Ion/new-api.git
+      
+      - name: Fetch from upstream
+        run: |
+          git fetch upstream
+      
+      - name: Merge upstream changes
+        run: |
+          # 假设主分支是 main，如果是 master 或其他分支，请相应修改
+          git checkout main
+          git merge upstream/main
+      
+      - name: Push changes
+        run: |
+          git push origin main
