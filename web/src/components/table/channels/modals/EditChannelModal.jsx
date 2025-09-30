@@ -103,6 +103,7 @@ const MODEL_FETCHABLE_TYPES = new Set([
   40,
   42,
   48,
+  43,
 ]);
 
 function type2secretPrompt(type) {
@@ -453,6 +454,14 @@ const EditChannelModal = (props) => {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
         data.vertex_key_type = 'json';
         data.is_enterprise_account = false;
+      }
+
+      if (
+        data.type === 45 &&
+        (!data.base_url ||
+          (typeof data.base_url === 'string' && data.base_url.trim() === ''))
+      ) {
+        data.base_url = 'https://ark.cn-beijing.volces.com';
       }
 
       setInputs(data);
@@ -837,7 +846,9 @@ const EditChannelModal = (props) => {
               delete localInputs.key;
             }
           } else {
-            localInputs.key = batch ? JSON.stringify(keys) : JSON.stringify(keys[0]);
+            localInputs.key = batch
+              ? JSON.stringify(keys)
+              : JSON.stringify(keys[0]);
           }
         }
       }
@@ -954,6 +965,56 @@ const EditChannelModal = (props) => {
     }
   };
 
+  // 密钥去重函数
+  const deduplicateKeys = () => {
+    const currentKey = formApiRef.current?.getValue('key') || inputs.key || '';
+
+    if (!currentKey.trim()) {
+      showInfo(t('请先输入密钥'));
+      return;
+    }
+
+    // 按行分割密钥
+    const keyLines = currentKey.split('\n');
+    const beforeCount = keyLines.length;
+
+    // 使用哈希表去重，保持原有顺序
+    const keySet = new Set();
+    const deduplicatedKeys = [];
+
+    keyLines.forEach((line) => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !keySet.has(trimmedLine)) {
+        keySet.add(trimmedLine);
+        deduplicatedKeys.push(trimmedLine);
+      }
+    });
+
+    const afterCount = deduplicatedKeys.length;
+    const deduplicatedKeyText = deduplicatedKeys.join('\n');
+
+    // 更新表单和状态
+    if (formApiRef.current) {
+      formApiRef.current.setValue('key', deduplicatedKeyText);
+    }
+    handleInputChange('key', deduplicatedKeyText);
+
+    // 显示去重结果
+    const message = t(
+      '去重完成：去重前 {{before}} 个密钥，去重后 {{after}} 个密钥',
+      {
+        before: beforeCount,
+        after: afterCount,
+      },
+    );
+
+    if (beforeCount === afterCount) {
+      showInfo(t('未发现重复密钥'));
+    } else {
+      showSuccess(message);
+    }
+  };
+
   const addCustomModels = () => {
     if (customModel.trim() === '') return;
     const modelArray = customModel.split(',').map((model) => model.trim());
@@ -1049,24 +1110,41 @@ const EditChannelModal = (props) => {
         </Checkbox>
       )}
       {batch && (
-        <Checkbox
-          disabled={isEdit}
-          checked={multiToSingle}
-          onChange={() => {
-            setMultiToSingle((prev) => !prev);
-            setInputs((prev) => {
-              const newInputs = { ...prev };
-              if (!multiToSingle) {
-                newInputs.multi_key_mode = multiKeyMode;
-              } else {
-                delete newInputs.multi_key_mode;
-              }
-              return newInputs;
-            });
-          }}
-        >
-          {t('密钥聚合模式')}
-        </Checkbox>
+        <>
+          <Checkbox
+            disabled={isEdit}
+            checked={multiToSingle}
+            onChange={() => {
+              setMultiToSingle((prev) => {
+                const nextValue = !prev;
+                setInputs((prevInputs) => {
+                  const newInputs = { ...prevInputs };
+                  if (nextValue) {
+                    newInputs.multi_key_mode = multiKeyMode;
+                  } else {
+                    delete newInputs.multi_key_mode;
+                  }
+                  return newInputs;
+                });
+                return nextValue;
+              });
+            }}
+          >
+            {t('密钥聚合模式')}
+          </Checkbox>
+
+          {inputs.type !== 41 && (
+            <Button
+              size='small'
+              type='tertiary'
+              theme='outline'
+              onClick={deduplicateKeys}
+              style={{ textDecoration: 'underline' }}
+            >
+              {t('密钥去重')}
+            </Button>
+          )}
+        </>
       )}
     </Space>
   ) : null;
@@ -1268,7 +1346,10 @@ const EditChannelModal = (props) => {
                       value={inputs.vertex_key_type || 'json'}
                       onChange={(value) => {
                         // 更新设置中的 vertex_key_type
-                        handleChannelOtherSettingsChange('vertex_key_type', value);
+                        handleChannelOtherSettingsChange(
+                          'vertex_key_type',
+                          value,
+                        );
                         // 切换为 api_key 时，关闭批量与手动/文件切换，并清理已选文件
                         if (value === 'api_key') {
                           setBatch(false);
@@ -1288,7 +1369,8 @@ const EditChannelModal = (props) => {
                     />
                   )}
                   {batch ? (
-                    inputs.type === 41 && (inputs.vertex_key_type || 'json') === 'json' ? (
+                    inputs.type === 41 &&
+                    (inputs.vertex_key_type || 'json') === 'json' ? (
                       <Form.Upload
                         field='vertex_files'
                         label={t('密钥文件 (.json)')}
@@ -1324,7 +1406,7 @@ const EditChannelModal = (props) => {
                         autoComplete='new-password'
                         onChange={(value) => handleInputChange('key', value)}
                         extraText={
-                          <div className='flex items-center gap-2'>
+                          <div className='flex items-center gap-2 flex-wrap'>
                             {isEdit &&
                               isMultiKeyChannel &&
                               keyMode === 'append' && (
@@ -1352,7 +1434,8 @@ const EditChannelModal = (props) => {
                     )
                   ) : (
                     <>
-                      {inputs.type === 41 && (inputs.vertex_key_type || 'json') === 'json' ? (
+                      {inputs.type === 41 &&
+                      (inputs.vertex_key_type || 'json') === 'json' ? (
                         <>
                           {!batch && (
                             <div className='flex items-center justify-between mb-3'>
