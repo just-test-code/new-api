@@ -337,6 +337,8 @@ export function getChannelIcon(channelType) {
       return <Kling.Color size={iconSize} />;
     case 51: // 即梦 Jimeng
       return <Jimeng.Color size={iconSize} />;
+    case 54: // 豆包视频 Doubao Video
+      return <Doubao.Color size={iconSize} />;
     case 8: // 自定义渠道
     case 22: // 知识库：FastGPT
       return <FastGPT.Color size={iconSize} />;
@@ -1072,7 +1074,7 @@ export function renderModelPrice(
       (completionTokens / 1000000) * completionRatioPrice * groupRatio +
       (webSearchCallCount / 1000) * webSearchPrice * groupRatio +
       (fileSearchCallCount / 1000) * fileSearchPrice * groupRatio +
-      (imageGenerationCallPrice * groupRatio);
+      imageGenerationCallPrice * groupRatio;
 
     return (
       <>
