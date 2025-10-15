@@ -165,6 +165,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.
 					}
 				}
 				other := make(map[string]interface{})
+				if c != nil && c.Request != nil && c.Request.URL != nil {
+					other["request_path"] = c.Request.URL.Path
+				}
 				other["model_price"] = modelPrice
 				other["group_ratio"] = groupRatio
 				if hasUserGroupRatio {
@@ -394,12 +397,12 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 			return
 		}
 		if converter, ok := adaptor.(channel.OpenAIVideoConverter); ok {
-			openAIVideo, err := converter.ConvertToOpenAIVideo(originTask)
+			openAIVideoData, err := converter.ConvertToOpenAIVideo(originTask)
 			if err != nil {
 				taskResp = service.TaskErrorWrapper(err, "convert_to_openai_video_failed", http.StatusInternalServerError)
 				return
 			}
-			respBody, _ = json.Marshal(openAIVideo)
+			respBody = openAIVideoData
 			return
 		}
 		taskResp = service.TaskErrorWrapperLocal(errors.New(fmt.Sprintf("not_implemented:%s", originTask.Platform)), "not_implemented", http.StatusNotImplemented)
